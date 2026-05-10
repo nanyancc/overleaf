@@ -5,6 +5,8 @@
 这个仓库用于构建一个自定义的 Overleaf Community Edition Docker 镜像。
 它面向 Docker Compose 自托管部署，并内置 Windows 中常见的中文字体，方便编译包含中文字体依赖的 LaTeX 文档。
 
+> 其实是官方的sharelatex镜像没有中文字体和arm版本，不方便部署在Oracle的ARM服务器上，遂从头编译了一个arm版本，并且内置了常见的中文字体。
+
 ## 功能特性
 
 - 基于 Overleaf Community Edition / ShareLaTeX。
@@ -13,30 +15,19 @@
 - 提供可直接使用的 `docker-compose.yml`，包含 Overleaf、MongoDB 和 Redis。
 - 通过 `docker compose up -d` 一键启动。
 
-## 环境要求
-
-- Docker
-- Docker Compose v2
-
 ## 快速开始
 
 启动完整服务：
 
 ```bash
+git clone https://github.com/nanyancc/overleaf.git overleaf
+cd overleaf
 docker compose up -d
 ```
 
-默认访问地址：
+默认访问地址是`http://127.0.0.1:3000`。第一次访问需要在`http://127.0.0.1:3000/launchpad`页面创建一个管理员账户。
 
-```text
-http://127.0.0.1
-```
-
-持久化数据会保存在：
-
-```text
-./data/
-```
+持久化数据会保存在`./data/`目录下，包含 MongoDB 数据、Redis 数据和 Overleaf 项目数据。
 
 ## Docker 镜像
 

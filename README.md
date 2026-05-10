@@ -5,6 +5,8 @@
 This repository is used to build a customized Overleaf Community Edition Docker image.
 It is intended for self-hosted Docker Compose deployments and includes common Chinese fonts found on Windows, making it easier to compile LaTeX documents that depend on Chinese fonts.
 
+> The official ShareLaTeX image does not include Chinese fonts or an ARM version, which makes it inconvenient to deploy on Oracle ARM servers. This image was therefore rebuilt from scratch for ARM and includes common Chinese fonts.
+
 ## Features
 
 - Based on Overleaf Community Edition / ShareLaTeX.
@@ -13,30 +15,20 @@ It is intended for self-hosted Docker Compose deployments and includes common Ch
 - Provides a ready-to-use `docker-compose.yml` with Overleaf, MongoDB, and Redis.
 - One-command startup with `docker compose up -d`.
 
-## Environment Requirements
-
-- Docker
-- Docker Compose v2
-
 ## Quick Start
 
 Start the full stack:
 
 ```bash
+git clone https://github.com/nanyancc/overleaf.git overleaf
+cd overleaf
 docker compose up -d
 ```
 
-The default compose file binds Overleaf to:
+The default access address is `http://127.0.0.1:3000`.
+On the first visit, create an administrator account at `http://127.0.0.1:3000/launchpad`.
 
-```text
-http://127.0.0.1
-```
-
-Persistent data is stored under:
-
-```text
-./data/
-```
+Persistent data is stored under the `./data/` directory, including MongoDB data, Redis data, and Overleaf project data.
 
 ## Docker Image
 
@@ -79,7 +71,7 @@ docker compose pull
 docker compose up -d
 ```
 
-## Configuration Notes
+## Configuration
 
 Most runtime settings are in `docker-compose.yml` under the `sharelatex.environment` section.
 
