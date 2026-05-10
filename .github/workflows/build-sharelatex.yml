@@ -11,10 +11,7 @@ permissions:
   packages: write
 
 env:
-  OVERLEAF_REPO: https://github.com/overleaf/overleaf.git
-  OVERLEAF_DIR: upstream-overleaf
   GHCR_IMAGE: ghcr.io/nanyancc/sharelatex
-  PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
   build-and-push:
@@ -36,11 +33,9 @@ jobs:
         run: |
           version="$(date -u '+%Y.%-m.%-d')"
           echo "IMAGE_VERSION=${version}" >> "$GITHUB_ENV"
-          echo "OVERLEAF_BASE_IMAGE=${GHCR_IMAGE}:overleaf-base-${version}" >> "$GITHUB_ENV"
-          echo "OVERLEAF_APP_IMAGE=${GHCR_IMAGE}:overleaf-app-${version}" >> "$GITHUB_ENV"
 
       - name: Clone Overleaf source
-        run: git clone --depth 1 "$OVERLEAF_REPO" "$OVERLEAF_DIR"
+        run: git clone --depth 1 https://github.com/overleaf/overleaf.git overleaf
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -49,42 +44,63 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Overleaf base image
-        working-directory: ${{ env.OVERLEAF_DIR }}
+      - name: Build amd64 images
         run: |
-          docker buildx build \
-            --platform "${PLATFORMS}" \
-            -f server-ce/Dockerfile-base \
-            -t "${OVERLEAF_BASE_IMAGE}" \
-            --cache-from type=gha,scope=overleaf-base \
-            --cache-to type=gha,scope=overleaf-base,mode=max \
-            --push \
+          DOCKER_BUILDKIT=1 docker build \
+            --platform amd64 \
+            -f overleaf/server-ce/Dockerfile-base \
+            -t sharelatex/sharelatex-base:local \
+            overleaf
+
+          DOCKER_BUILDKIT=1 docker build \
+            --platform amd64 \
+            -f overleaf/server-ce/Dockerfile \
+            --build-arg OVERLEAF_BASE_TAG=sharelatex/sharelatex-base:local \
+            -t sharelatex/sharelatex:local \
+            overleaf
+
+          DOCKER_BUILDKIT=1 docker build \
+            --platform amd64 \
+            --build-arg OVERLEAF_IMAGE=sharelatex/sharelatex:local \
+            -t "${GHCR_IMAGE}:${IMAGE_VERSION}-amd64" \
             .
 
-      - name: Build Overleaf app image
-        working-directory: ${{ env.OVERLEAF_DIR }}
+          docker push "${GHCR_IMAGE}:${IMAGE_VERSION}-amd64"
+
+      - name: Build arm64 images
         run: |
-          docker buildx build \
-            --platform "${PLATFORMS}" \
-            -f server-ce/Dockerfile \
-            --build-arg "OVERLEAF_BASE_TAG=${OVERLEAF_BASE_IMAGE}" \
-            -t "${OVERLEAF_APP_IMAGE}" \
-            --cache-from type=gha,scope=overleaf-app \
-            --cache-to type=gha,scope=overleaf-app,mode=max \
-            --push \
+          DOCKER_BUILDKIT=1 docker build \
+            --platform arm64 \
+            -f overleaf/server-ce/Dockerfile-base \
+            -t sharelatex/sharelatex-base:local \
+            overleaf
+
+          DOCKER_BUILDKIT=1 docker build \
+            --platform arm64 \
+            -f overleaf/server-ce/Dockerfile \
+            --build-arg OVERLEAF_BASE_TAG=sharelatex/sharelatex-base:local \
+            -t sharelatex/sharelatex:local \
+            overleaf
+
+          DOCKER_BUILDKIT=1 docker build \
+            --platform arm64 \
+            --build-arg OVERLEAF_IMAGE=sharelatex/sharelatex:local \
+            -t "${GHCR_IMAGE}:${IMAGE_VERSION}-arm64" \
             .
 
-      - name: Build custom image
+          docker push "${GHCR_IMAGE}:${IMAGE_VERSION}-arm64"
+
+      - name: Create and push multi-architecture manifests
         run: |
-          docker buildx build \
-            --platform "${PLATFORMS}" \
-            --build-arg "OVERLEAF_IMAGE=${OVERLEAF_APP_IMAGE}" \
-            -t ${GHCR_IMAGE}:${IMAGE_VERSION} \
-            -t ${GHCR_IMAGE}:latest \
-            --cache-from type=gha,scope=custom-sharelatex \
-            --cache-to type=gha,scope=custom-sharelatex,mode=max \
-            --push \
-            .
+          docker manifest create --amend "${GHCR_IMAGE}:${IMAGE_VERSION}" \
+            "${GHCR_IMAGE}:${IMAGE_VERSION}-amd64" \
+            "${GHCR_IMAGE}:${IMAGE_VERSION}-arm64"
+          docker manifest push "${GHCR_IMAGE}:${IMAGE_VERSION}"
+
+          docker manifest create --amend "${GHCR_IMAGE}:latest" \
+            "${GHCR_IMAGE}:${IMAGE_VERSION}-amd64" \
+            "${GHCR_IMAGE}:${IMAGE_VERSION}-arm64"
+          docker manifest push "${GHCR_IMAGE}:latest"
 
       - name: Inspect pushed image
         run: docker buildx imagetools inspect "${GHCR_IMAGE}:${IMAGE_VERSION}"
