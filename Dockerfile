@@ -1,6 +1,6 @@
 FROM sharelatex/sharelatex:local
 
-RUN tlmgr option repository https://mirror.ctan.org/systems/texlive/tlnet && \
+RUN tlmgr option repository https://ctan.math.utah.edu/ctan/tex-archive/systems/texlive/tlnet && \
     tlmgr install scheme-full && \
     mkdir -p /usr/share/fonts/truetype/msfonts
 
