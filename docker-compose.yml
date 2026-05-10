@@ -1,0 +1,104 @@
+services:
+  mongo:
+    restart: unless-stopped
+    image: mongo:8.0
+    container_name: mongo
+    command: "--replSet overleaf"
+    volumes:
+      - ./data/mongo:/data/db
+      - ./mongo-init/healthcheck.sh:/usr/local/bin/mongo-healthcheck:ro
+    expose:
+      - 27017
+    healthcheck:
+      # Bootstrap/check the single-node replica set from the final mongod process.
+      # Do not initialize it from /docker-entrypoint-initdb.d: the official Mongo
+      # image's temporary init mongod binds only to 127.0.0.1, so rs.initiate()
+      # with member host "mongo:27017" fails with NodeNotFound.
+      test: ["CMD", "/usr/local/bin/mongo-healthcheck"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+
+  redis:
+    restart: unless-stopped
+    image: redis:7.4
+    container_name: redis
+    volumes:
+      - ./data/redis:/data
+    command: redis-server --appendonly yes
+    expose:
+      - 6379
+
+  sharelatex:
+    restart: none
+    image: nanyancc/sharelatex:1.1-arm
+    container_name: sharelatex
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "127.0.0.1:3001:80"
+    volumes:
+      - ./data/overleaf:/var/lib/overleaf
+    stop_grace_period: 60s
+    environment:
+      # Core connectivity
+      OVERLEAF_MONGO_URL: "mongodb://mongo/sharelatex?replicaSet=overleaf"
+      OVERLEAF_REDIS_HOST: "redis"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+
+      # Git bridge (disabled in CE)
+      GIT_BRIDGE_ENABLED: "false"
+
+      # History service URL (internal)
+      V1_HISTORY_URL: "http://sharelatex:3100/api"
+
+      # App branding / features (from variables.env seed)
+      OVERLEAF_APP_NAME: "nanyancc's Overleaf"
+      ENABLED_LINKED_FILE_TYPES: "project_file,project_output_file"
+      ENABLE_CONVERSIONS: "true"
+      EMAIL_CONFIRMATION_DISABLED: "true"
+
+      # Server Pro features disabled
+      EXTERNAL_AUTH: "none"
+
+      # In-container compile settings (no sibling containers in CE)
+      DOCKER_RUNNER: "false"
+      SANDBOXED_COMPILES: "false"
+      SANDBOXED_COMPILES_SIBLING_CONTAINERS: "false"
+
+      # Logging path inside container (Overleaf >= 5.x)
+      OVERLEAF_IN_CONTAINER_LOG_PATH: "/var/log/overleaf"
+
+
+      ## Nginx
+      # NGINX_WORKER_PROCESSES=4
+      # NGINX_WORKER_CONNECTIONS=768
+
+      ## Set for TLS via nginx-proxy
+      # OVERLEAF_BEHIND_PROXY=true
+      # OVERLEAF_SECURE_COOKIE=true
+
+      OVERLEAF_SITE_URL: "https://overleaf.nanyan.cc"
+      # OVERLEAF_NAV_TITLE=Our Overleaf Instance
+      # OVERLEAF_HEADER_IMAGE_URL=http://somewhere.com/mylogo.png
+      OVERLEAF_ADMIN_EMAIL: admin@nanyan.cc
+
+      # OVERLEAF_LEFT_FOOTER='[{"text": "Contact your support team", "url": "mailto:support@example.com"}]'
+      # OVERLEAF_RIGHT_FOOTER='[{"text": "Hello, I am on the Right"}]'
+
+      # OVERLEAF_EMAIL_FROM_ADDRESS=team@example.com
+
+      # OVERLEAF_EMAIL_SMTP_HOST=smtp.example.com
+      # OVERLEAF_EMAIL_SMTP_PORT=587
+      # OVERLEAF_EMAIL_SMTP_SECURE=false
+      # OVERLEAF_EMAIL_SMTP_USER=
+      # OVERLEAF_EMAIL_SMTP_PASS=
+      # OVERLEAF_EMAIL_SMTP_NAME=
+      # OVERLEAF_EMAIL_SMTP_LOGGER=false
+      # OVERLEAF_EMAIL_SMTP_TLS_REJECT_UNAUTH=true
+      # OVERLEAF_EMAIL_SMTP_IGNORE_TLS=false
+      # OVERLEAF_CUSTOM_EMAIL_FOOTER=This system is run by department x

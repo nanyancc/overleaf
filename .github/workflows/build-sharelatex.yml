@@ -1,0 +1,64 @@
+name: Build ShareLaTeX Image
+
+on:
+  schedule:
+    # Run weekly on Sunday at 03:00 UTC.
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  OVERLEAF_REPO: https://github.com/overleaf/overleaf.git
+  OVERLEAF_DIR: upstream-overleaf
+  GHCR_IMAGE: ghcr.io/nanyancc/sharelatex
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout custom image files
+        uses: actions/checkout@v4
+
+      - name: Set image version
+        run: echo "IMAGE_VERSION=$(date -u '+%Y.%-m.%-d')" >> "$GITHUB_ENV"
+
+      - name: Clone Overleaf source
+        run: git clone --depth 1 "$OVERLEAF_REPO" "$OVERLEAF_DIR"
+
+      - name: Build Overleaf base image
+        working-directory: ${{ env.OVERLEAF_DIR }}
+        run: |
+          DOCKER_BUILDKIT=1 docker build \
+            -f server-ce/Dockerfile-base \
+            -t sharelatex/sharelatex-base:local \
+            .
+
+      - name: Build Overleaf app image
+        working-directory: ${{ env.OVERLEAF_DIR }}
+        run: |
+          DOCKER_BUILDKIT=1 docker build \
+            -f server-ce/Dockerfile \
+            --build-arg OVERLEAF_BASE_TAG=sharelatex/sharelatex-base:local \
+            -t sharelatex/sharelatex:local \
+            .
+
+      - name: Build custom image
+        run: |
+          DOCKER_BUILDKIT=1 docker build \
+            -t nanyancc/sharelatex:${IMAGE_VERSION} \
+            -t ${GHCR_IMAGE}:${IMAGE_VERSION} \
+            .
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image to GHCR
+        run: docker push "${GHCR_IMAGE}:${IMAGE_VERSION}"
