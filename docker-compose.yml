@@ -30,8 +30,8 @@ services:
       - 6379
 
   sharelatex:
-    restart: none
-    image: nanyancc/sharelatex:1.1-arm
+    restart: unless-stopped
+    image: ghcr.io/nanyancc/sharelatex:latest
     container_name: sharelatex
     depends_on:
       mongo:
@@ -39,7 +39,7 @@ services:
       redis:
         condition: service_started
     ports:
-      - "127.0.0.1:3001:80"
+      - "127.0.0.1:80:80"
     volumes:
       - ./data/overleaf:/var/lib/overleaf
     stop_grace_period: 60s
@@ -57,7 +57,7 @@ services:
       V1_HISTORY_URL: "http://sharelatex:3100/api"
 
       # App branding / features (from variables.env seed)
-      OVERLEAF_APP_NAME: "nanyancc's Overleaf"
+      OVERLEAF_APP_NAME: "Overleaf Community Edition"
       ENABLED_LINKED_FILE_TYPES: "project_file,project_output_file"
       ENABLE_CONVERSIONS: "true"
       EMAIL_CONFIRMATION_DISABLED: "true"
@@ -82,10 +82,10 @@ services:
       # OVERLEAF_BEHIND_PROXY=true
       # OVERLEAF_SECURE_COOKIE=true
 
-      OVERLEAF_SITE_URL: "https://overleaf.nanyan.cc"
+      # OVERLEAF_SITE_URL: "https://overleaf.example.com"
       # OVERLEAF_NAV_TITLE=Our Overleaf Instance
       # OVERLEAF_HEADER_IMAGE_URL=http://somewhere.com/mylogo.png
-      OVERLEAF_ADMIN_EMAIL: admin@nanyan.cc
+      # OVERLEAF_ADMIN_EMAIL: admin@example.com
 
       # OVERLEAF_LEFT_FOOTER='[{"text": "Contact your support team", "url": "mailto:support@example.com"}]'
       # OVERLEAF_RIGHT_FOOTER='[{"text": "Hello, I am on the Right"}]'
